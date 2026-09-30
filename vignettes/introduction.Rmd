@@ -1,0 +1,91 @@
+---
+title: "Using the lab4 package"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using the lab4 package}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+## Introduction
+
+This package fits linear regression models using QR decomposition.
+It uses an S3 class called linreg.
+
+We use the iris dataset to predict petal length from flower species.
+
+```{r}
+library(lab4)
+
+model <- linreg(Petal.Length ~ Species, data = iris)
+```
+
+## Print the model
+
+The print method displays the model call and its coefficients.
+
+```{r}
+print(model)
+```
+
+## Coefficients
+
+The intercept is the estimated mean petal length for setosa.
+The other coefficients describe differences from setosa.
+
+```{r}
+coef(model)
+```
+
+## Residuals
+
+A residual is the observed value minus the fitted value.
+Here are the first six residuals.
+
+```{r}
+head(resid(model))
+```
+
+## Fitted values
+
+The pred method returns predictions for the observations used
+to fit the model.
+
+```{r}
+head(pred(model))
+```
+
+## Model summary
+
+The summary displays coefficient estimates, standard errors,
+t-values and p-values. It also displays the residual standard
+error and residual degrees of freedom.
+
+```{r}
+summary(model)
+```
+
+## Diagnostic plots
+
+The first plot shows residuals against fitted values.
+Patterns may suggest that the model does not describe the data well.
+
+The Scale-Location plot helps assess whether the spread of
+errors changes across fitted values.
+
+```{r, fig.width=6, fig.height=4}
+plot(model)
+```
+
+## Multiple predictors
+
+We can also predict petal length using sepal length and sepal width.
+
+```{r}
+model2 <- linreg(
+  Petal.Length ~ Sepal.Length + Sepal.Width,
+  data = iris
+)
+
+summary(model2)
+```
