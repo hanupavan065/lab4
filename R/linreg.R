@@ -3,6 +3,7 @@
 #' @param data A data frame containing the model variables.
 #' @return An object of class linreg containing the regression results.
 #' @export
+#' @importFrom stats coef resid residuals
 linreg<-function(formula,data) {
   if(!is.data.frame(data)){
     stop("invalid")
@@ -222,6 +223,7 @@ summary.linreg<-function(object, ...) {
 #' @return plot
 #' @importFrom rlang .data
 #' @export
+#' @importFrom stats coef resid residuals
 plot.linreg<-function(x, ...) {
   plot_data<-data.frame(
     f=x$fitted_values,

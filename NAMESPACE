@@ -9,3 +9,8 @@ S3method(summary,linreg)
 export(linreg)
 export(pred)
 importFrom(rlang,.data)
+importFrom(stats,
+  coef,
+  resid,
+  residuals
+)
