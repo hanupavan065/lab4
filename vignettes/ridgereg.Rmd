@@ -1,0 +1,187 @@
+
+---
+title: "Ridge Regression with lab4"
+author: "Package Author"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Ridge Regression with lab4}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE
+)
+
+library(lab4)
+library(mlbench)
+library(caret)
+```
+
+# 1. Introduction
+
+This vignette demonstrates ridge regression using the `ridgereg()`
+function from `lab4`. We compare ordinary linear regression,
+forward variable selection, and ridge regression using a held-out
+test set.
+
+# 2. Prepare the data
+
+We use the Boston Housing dataset provided by `mlbench`.
+
+```{r data}
+data("BostonHousing", package = "mlbench")
+
+housing <- BostonHousing
+housing <- housing[complete.cases(housing), ]
+
+set.seed(123)
+train_index <- caret::createDataPartition(
+  housing$medv,
+  p = 0.8,
+  list = FALSE
+)
+
+train <- housing[train_index, ]
+test <- housing[-train_index, ]
+
+nrow(train)
+nrow(test)
+```
+
+# 3. Ordinary linear regression
+
+```{r linear-model}
+linear_model <- lm(medv ~ ., data = train)
+
+linear_predictions <- predict(linear_model, newdata = test)
+```
+
+# 4. Forward selection
+
+We start with an intercept-only model and use forward selection
+with AIC to choose predictors.
+
+```{r forward-selection}
+null_model <- lm(medv ~ 1, data = train)
+full_model <- lm(medv ~ ., data = train)
+
+forward_model <- step(
+  null_model,
+  scope = list(
+    lower = formula(null_model),
+    upper = formula(full_model)
+  ),
+  direction = "forward",
+  trace = 0
+)
+
+forward_predictions <- predict(forward_model, newdata = test)
+```
+
+# 5. Tune ridge regression using 10-fold cross-validation
+
+We compare multiple penalty values using only the training data.
+Each fold acts as a validation set once.
+
+```{r ridge-cv}
+x <- model.matrix(medv ~ ., data = train)[, -1, drop = FALSE]
+y <- train$medv
+
+# Tune ridge regression using 10-fold cross-validation
+
+lambda_grid <- c(0.001, 0.01, 0.1, 1, 10, 100)
+
+set.seed(123)
+folds <- caret::createFolds(train$medv, k = 10, list = TRUE)
+
+# Expand the formula explicitly to avoid problems with "."
+predictor_names <- setdiff(names(train), "medv")
+ridge_formula <- stats::reformulate(predictor_names, response = "medv")
+
+cv_rmse <- sapply(lambda_grid, function(lambda) {
+  fold_errors <- sapply(folds, function(validation_rows) {
+    fold_train <- train[-validation_rows, , drop = FALSE]
+    fold_valid <- train[validation_rows, , drop = FALSE]
+
+    model <- ridgereg(
+      ridge_formula,
+      data = fold_train,
+      lambda = lambda
+    )
+
+    predictions <- predict(model, newdata = fold_valid)
+
+    sqrt(mean((fold_valid$medv - predictions)^2))
+  })
+
+  mean(fold_errors)
+})
+
+cv_results <- data.frame(
+  lambda = lambda_grid,
+  CV_RMSE = cv_rmse
+)
+
+print(cv_results)
+
+best_lambda <- cv_results$lambda[which.min(cv_results$CV_RMSE)]
+print(best_lambda)
+```
+
+
+
+# 6. Fit the final ridge model
+
+```{r final-ridge}
+
+ridge_model <- ridgereg(
+  ridge_formula,
+  data = train,
+  lambda = best_lambda
+)
+
+ridge_predictions <- predict(ridge_model, newdata = test)
+
+```
+
+# 7. Compare test-set performance
+
+We use root mean squared error (RMSE). Smaller values indicate
+better predictive accuracy on this test set.
+
+```{r comparison}
+rmse <- function(actual, predicted) {
+  sqrt(mean((actual - predicted)^2))
+}
+
+results <- data.frame(
+  Model = c(
+    "Ordinary linear regression",
+    "Forward selection",
+    "Ridge regression"
+  ),
+  Test_RMSE = c(
+    rmse(test$medv, linear_predictions),
+    rmse(test$medv, forward_predictions),
+    rmse(test$medv, ridge_predictions)
+  )
+)
+
+results[order(results$Test_RMSE), ]
+```
+
+# 8. Discussion
+
+The model with the lowest test RMSE performed best on this particular
+split. Ridge regression shrinks predictor coefficients to reduce
+variance, while forward selection removes predictors according to
+AIC. Ordinary linear regression retains all predictors without a
+ridge penalty.
+
+The best method depends on the dataset, the split, and the penalty
+chosen during cross-validation. Test data are used only for final
+evaluation, not for selecting the penalty.
